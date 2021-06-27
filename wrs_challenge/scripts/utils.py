@@ -68,6 +68,8 @@ LARGE_TABLE_OBJECTS_AREA = Polygon([(0.418794184923172, 2.0204780101776123), (0.
 SMALL_TABLE_OBJECTS_AREA = Polygon([(-0.1925392746925354, 2.030886650085449), (0.17946362495422363, 2.030886650085449), (0.16125373542308807, 1.671793818473816), (-0.200343519449234, 1.6796001195907593)])
 GROUND_OBJECTS_REDUCED_AREA = Polygon([(-0.21393196284770966, 0.8757089376449585), (-0.21393196284770966, 1.3273252248764038), (1.6966605186462402, 1.3163102865219116), (1.7131786346435547, 0.8702014088630676)])
 
+LARGE_TABLE_HEIGHT = 0.41
+SMALL_TABLE_HEIGHT = 0.61
 
 def get_current_time_sec():
     return rospy.Time.now().to_sec()
@@ -129,27 +131,24 @@ def centroid(arr):
     return sum_x/length, sum_y/length
 
 
-class TimeWatchDogThread(threading.Thread):
-    def run(self):
-        start_time = rospy.Time.now()
-        max_minutes = 14
-        max_seconds = 50
-        max_duration = max_minutes * 60 + max_seconds
-        rospy.loginfo(
-            "Movement started after {} minutes and {} seconds. Simulation will run for {} minutes and {} seconds.".format(
-                str(start_time.secs // 60), str(start_time.secs % 60), str(max_minutes), str(max_seconds)
-            )
+def time_watchdog(self, max_minutes=14, max_seconds=50):
+    start_time = rospy.Time.now()
+    max_duration = max_minutes * 60 + max_seconds
+    rospy.loginfo(
+        "Movement started after {} minutes and {} seconds. Simulation will run for {} minutes and {} seconds.".format(
+            str(start_time.secs // 60), str(start_time.secs % 60), str(max_minutes), str(max_seconds)
         )
-        while True:
-            duration = (rospy.Time.now() - start_time).secs
-            if duration > max_duration:
-                rospy.loginfo("Interrupting simulation after {} minutes and {} seconds.".format(
-                    str(duration // 60), str(duration % 60)
-                ))
-                time.sleep(1)
-                os._exit(1)
-            else:
-                time.sleep(1)
+    )
+    while True:
+        duration = (rospy.Time.now() - start_time).secs
+        if duration > max_duration:
+            rospy.loginfo("Interrupting simulation after {} minutes and {} seconds.".format(
+                str(duration // 60), str(duration % 60)
+            ))
+            time.sleep(1)
+            os._exit(1)
+        else:
+            time.sleep(1)
 
 
 class Singleton(type):
@@ -602,12 +601,12 @@ class Scene(with_metaclass(Singleton)):
         if self.use_labels:
             # list(tuple(minx, miny, maxx, maxy, cx, cy, label, confidence))
             detector_output = self.obj_detector.detect(image)
-#             print("detector_output: {}".format(detector_output))
+            print("detector_output: {}".format(detector_output))
             objs_pixels_centroids = {
                 uid: centroid(np.array([pixel.pixel for pixel in obj.pixels]))
                 for uid, obj in new_objects.items()
             }
-#             print("objs_pixels_centroids: {}".format(objs_pixels_centroids))
+            print("objs_pixels_centroids: {}".format(objs_pixels_centroids))
             for uid, c in objs_pixels_centroids.items():
                 label_by_distance = []
                 for (minx, miny, maxx, maxy, cx, cy, label, confidence) in detector_output:
@@ -662,7 +661,7 @@ class ObjectDetection(object):
         # Get real-time video stream through opencv
         LABELS_FILE = '/workspace/src/wrs_challenge/scripts/ycb_tinyyolo/ycb_simu.names'
         CONFIG_FILE = '/workspace/src/wrs_challenge/scripts/ycb_tinyyolo/yolov3-tiny-ycb_simu_test.cfg'
-        WEIGHTS_FILE = '/workspace/src/wrs_challenge/scripts/ycb_tinyyolo/yolov3-tiny-ycb_simu_best_004.weights'
+        WEIGHTS_FILE = '/workspace/src/wrs_challenge/scripts/ycb_tinyyolo/yolov3-tiny-ycb_simu_best_007.weights'
         self.CONFIDENCE_THRESHOLD = 0.3
 
         self.H = None
@@ -1204,11 +1203,28 @@ HEIGHT_ABOVE_CONTAINER_A = 0.62
 in_front_large_table_ground_objects_goal_str = '{"header": {"stamp": {"secs": 824, "nsecs": 610000000}, "frame_id": "", "seq": 0}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 824, "nsecs": 598000000}, "frame_id": "map", "seq": 0}, "pose": {"position": {"y": 0.24864110350608826, "x": 1.026589274406433, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.70455870740194, "w": 0.7096457058449008}}}}}'
 IN_FRONT_LARGE_TABLE_GROUND_OBJECTS_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', in_front_large_table_ground_objects_goal_str).goal
 
-in_front_small_table_ground_objects_goal_str = '{"header": {"stamp": {"secs": 24, "nsecs": 591000000}, "frame_id": "", "seq": 2}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 24, "nsecs": 579000000}, "frame_id": "map", "seq": 2}, "pose": {"position": {"y": 0.3704327344894409, "x": 0.348357617855072, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.718415368492299, "w": 0.6956143747178275}}}}}'
-IN_FRONT_SMALL_TABLE_GROUND_OBJECTS_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', in_front_small_table_ground_objects_goal_str).goal
-
 in_front_deposit_table_goal_str = '{"header": {"stamp": {"secs": 972, "nsecs": 594000000}, "frame_id": "", "seq": 4}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 972, "nsecs": 594000000}, "frame_id": "map", "seq": 0}, "pose": {"position": {"y": 0.4221145510673523, "x": 1.5025765895843506, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": -0.7071067966408575, "w": 0.7071067657322372}}}}}'
 IN_FRONT_DEPOSIT_TABLE_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', in_front_deposit_table_goal_str).goal
 
+
+in_front_small_table_ground_objects_goal_str = '{"header": {"stamp": {"secs": 24, "nsecs": 591000000}, "frame_id": "", "seq": 2}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 24, "nsecs": 579000000}, "frame_id": "map", "seq": 2}, "pose": {"position": {"y": 0.3704327344894409, "x": 0.348357617855072, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.718415368492299, "w": 0.6956143747178275}}}}}'
+IN_FRONT_SMALL_TABLE_GROUND_OBJECTS_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', in_front_small_table_ground_objects_goal_str).goal
+
+
 in_front_bins_goal_str = '{"header": {"stamp": {"secs": 269, "nsecs": 985000000}, "frame_id": "", "seq": 1}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 269, "nsecs": 979000000}, "frame_id": "map", "seq": 1}, "pose": {"position": {"y": 0.3244279623031616, "x": 2.6250836849212646, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": -0.7071067966408575, "w": 0.7071067657322372}}}}}'
 IN_FRONT_BINS_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', in_front_bins_goal_str).goal
+
+closer_to_large_table_goal_str = '{"header": {"stamp": {"secs": 565, "nsecs": 278000000}, "frame_id": "", "seq": 0}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 565, "nsecs": 251000000}, "frame_id": "map", "seq": 0}, "pose": {"position": {"y": 0.7884740233421326, "x": 1.0139237642288208, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.7039987564798472, "w": 0.7102012045011108}}}}}'
+CLOSER_TO_LARGE_TABLE_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', closer_to_large_table_goal_str).goal
+
+closer_to_small_table_goal_str = '{"header": {"stamp": {"secs": 126, "nsecs": 681000000}, "frame_id": "", "seq": 0}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 126, "nsecs": 678000000}, "frame_id": "map", "seq": 0}, "pose": {"position": {"y": 0.6894643902778625, "x": 0.023825407028198242, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.7009854519975371, "w": 0.7131755717127505}}}}}'
+CLOSER_TO_SMALL_TABLE_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', closer_to_small_table_goal_str).goal
+
+beside_bins_goal_str = '{"header": {"stamp": {"secs": 182, "nsecs": 889000000}, "frame_id": "", "seq": 1}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 182, "nsecs": 889000000}, "frame_id": "map", "seq": 1}, "pose": {"position": {"y": 0.31022635102272034, "x": 2.4421634674072266, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": -0.0026041090858226357, "w": 0.9999966093021861}}}}}'
+BESIDES_BIN_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', beside_bins_goal_str).goal
+
+beside_bins_turn_goal_str = '{"header": {"stamp": {"secs": 208, "nsecs": 770000000}, "frame_id": "", "seq": 2}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 208, "nsecs": 743000000}, "frame_id": "map", "seq": 2}, "pose": {"position": {"y": 0.4013778567314148, "x": 2.4725470542907715, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.7055942189706708, "w": 0.7086161148006508}}}}}'
+BESIDES_BINS_TURN_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', beside_bins_turn_goal_str).goal
+
+obstacle_avoidance_area_goal_str = '{"header": {"stamp": {"secs": 1218, "nsecs": 867000000}, "frame_id": "", "seq": 21}, "goal_id": {"stamp": {"secs": 0, "nsecs": 0}, "id": ""}, "goal": {"target_pose": {"header": {"stamp": {"secs": 1218, "nsecs": 867000000}, "frame_id": "map", "seq": 21}, "pose": {"position": {"y": 1.7440035343170166, "x": 2.618055582046509, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.7167735161966976, "w": 0.697306049363565}}}}}'
+OBSTACLE_AVOIDANCE_AREA_GOAL = json_message_converter.convert_json_to_ros_message('move_base_msgs/MoveBaseActionGoal', obstacle_avoidance_area_goal_str).goal
